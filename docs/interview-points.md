@@ -12,7 +12,8 @@ behind human confirmation -- all audit-logged."
 ## Architecture decisions worth defending
 
 - **Views + gateway instead of raw SQL:** the planner can only SELECT from
-  four allowlisted views; denials cite stable rule IDs (SEC-SELECT-01/02/03).
+  four allowlisted views; denials cite stable rule IDs (SEC-SELECT-01, SEC-WRITE-02, SEC-VIEW-03), and a SQLite authorizer
+  enforces the allowlist however a table is spelled (ADR 0001).
   Least privilege for data access.
 - **Transparent scoring over black-box ranking:** the bed matcher returns its
   breakdown (acuity fit / capability / headroom) because a bed manager must

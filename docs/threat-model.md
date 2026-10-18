@@ -22,7 +22,7 @@ Scope: the planner, its tools, and the demo UI. Synthetic data only.
 ## Information disclosure
 
 - Patient data leaking through answers or feedback text. Mitigation:
-  fictional IDs only; `PIIScrubber` redacts email/phone/SSN patterns before
+  fictional IDs only; `PIIScrubber` redacts email/phone/SSN/MRN patterns before
   feedback is stored; error paths never echo raw row data; SOP excerpts are
   capped at 400 chars.
 

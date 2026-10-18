@@ -23,7 +23,8 @@ How to take this repo from synthetic demo to a real hospital pilot.
 ## 3. Identity and privacy
 
 - Replace fictional `PT-####` refs with keyed HMAC pseudonyms (key from env,
-  rotation documented). Extend `PIIScrubber` with MRN patterns and run it on
+  rotation documented). `PIIScrubber` already covers a simple `MRN 1234567` pattern; extend it with your
+  site's MRN format and run it on
   every free-text field, including SOP excerpts shown in the UI.
 - Audit log goes to append-only storage (WORM) with external timestamping.
 

@@ -9,12 +9,11 @@ import sqlite3
 import pytest
 
 from hospops import audit as audit_mod
-from hospops import bedmatch, demand as demand_mod
+from hospops import bedmatch, demo_helpers, hospital, sop_rag, text2sql, views
+from hospops import demand as demand_mod
 from hospops import discharge as discharge_mod
 from hospops import escalation as esc
 from hospops import feedback as feedback_mod
-from hospops import hospital, sop_rag, text2sql, views
-from hospops import demo_helpers
 from hospops import orchestrator as orch_mod
 
 SOPS_DIR = os.path.join(os.path.dirname(os.path.dirname(
@@ -584,3 +583,34 @@ def test_recent_audit_rows(planner):
     assert rows
     assert set(rows[0]) == {"seq", "actor", "action", "hash"}
     assert len(rows[0]["hash"]) == 12
+
+
+# ---------- review fixes (grokbot-portfolio, 2026-10-18) ----------
+
+def test_load_term_uses_projected_occupancy():
+    boarder = {"acuity": 4, "iso_required": 0, "complaint_category": "general"}
+    ward = {"ward_type": "MEDICAL", "capabilities": "telemetry",
+            "occupancy_pct": 50.0, "occupied_beds": 5, "total_beds": 10}
+    _, first = bedmatch.score_candidate(boarder, ward, 0)
+    _, later = bedmatch.score_candidate(boarder, ward, 4)
+    assert first["load"] == 0.1 and later["load"] == 0.02
+
+
+def test_capability_term_reflects_telemetry_need():
+    cardiac = {"acuity": 3, "iso_required": 0, "complaint_category": "cardiac"}
+    no_tele = {"ward_type": "SURGICAL", "capabilities": "", "occupancy_pct": 0.0}
+    tele = {"ward_type": "SURGICAL", "capabilities": "telemetry", "occupancy_pct": 0.0}
+    assert bedmatch.score_candidate(cardiac, no_tele)[1]["capability"] == 0.0
+    assert bedmatch.score_candidate(cardiac, tele)[1]["capability"] == 0.3
+
+
+def test_adult_boarders_never_placed_in_pediatrics(conn):
+    result = bedmatch.match(conn)
+    assert all(a["ward_type"] != "PEDS" for a in result["assignments"])
+
+
+def test_scrubber_catches_parenthesised_phone_and_mrn():
+    from hospops.feedback import PIIScrubber
+    out = PIIScrubber().scrub("call (555) 123-4567 about MRN 00123456")
+    assert "555" not in out and "00123456" not in out
+    assert "[REDACTED-PHONE]" in out and "[REDACTED-MRN]" in out

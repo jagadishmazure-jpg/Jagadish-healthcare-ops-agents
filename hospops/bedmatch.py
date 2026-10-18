@@ -7,8 +7,15 @@ ED boarders are matched to free ward beds by a transparent weighted score:
 - acuity_fit: how appropriate the ward type is for the triage acuity
   (ESI-style 1 = most urgent .. 5 = least). Hard rule: acuity 1 goes to ICU
   only; isolation-required patients go to isolation-capable beds only.
-- capability_match: 1.0 when every patient need the bed/ward can meet is met.
-- load: prefers wards with headroom, so one ward is never filled to 100%.
+- capability_match: share of the boarder's monitoring needs the ward meets
+  (cardiac and neuro complaints need ``telemetry``; other complaints have no
+  extra need and score 1.0).
+- load: projected headroom *after* the beds already assigned in this run,
+  so successive boarders spread across wards instead of piling into the
+  first good one until it is full.
+
+Pediatric beds are not offered to these boarders: the synthetic ED feed has
+no age field, so every boarder is treated as an adult.
 
 Every assignment carries its score breakdown, so a bed manager can see *why*
 a bed was chosen. Boarders with no eligible bed are escalated, never silently
@@ -23,8 +30,11 @@ ACUITY_WARD_FIT = {
     2: {"ICU": 1.0, "STEPDOWN": 0.8},
     3: {"STEPDOWN": 1.0, "MEDICAL": 0.9, "SURGICAL": 0.9},
     4: {"MEDICAL": 1.0, "SURGICAL": 1.0, "STEPDOWN": 0.7},
-    5: {"MEDICAL": 1.0, "PEDS": 1.0, "SURGICAL": 0.7},
+    5: {"MEDICAL": 1.0, "SURGICAL": 0.7},
 }
+
+# Monitoring a complaint needs from the ward (capability tags in wards.capabilities).
+COMPLAINT_NEEDS = {"cardiac": {"telemetry"}, "neuro": {"telemetry"}}
 
 WEIGHTS = {"acuity_fit": 0.50, "capability": 0.30, "load": 0.20}
 
@@ -34,15 +44,24 @@ def _capabilities(ward_row):
     return {c.strip() for c in caps.split(",") if c.strip()}
 
 
-def score_candidate(boarder, ward_row):
-    """Return (score, breakdown) or None when the ward is ineligible."""
+def score_candidate(boarder, ward_row, assigned_in_run=0):
+    """Return (score, breakdown) or None when the ward is ineligible.
+
+    ``assigned_in_run`` is how many beds this matching run has already given
+    out in the ward; the load term uses the projected occupancy.
+    """
     fit = ACUITY_WARD_FIT.get(boarder["acuity"], {}).get(ward_row["ward_type"], 0.0)
     if fit <= 0:
         return None
     if boarder.get("iso_required") and "iso" not in _capabilities(ward_row):
         return None
-    capability = 1.0
-    load = 1.0 - (ward_row["occupancy_pct"] or 0.0) / 100.0
+    needs = COMPLAINT_NEEDS.get(boarder.get("complaint_category"), set())
+    capability = (len(needs & _capabilities(ward_row)) / len(needs)) if needs else 1.0
+    if ward_row.get("total_beds"):
+        occupied = (ward_row.get("occupied_beds") or 0) + assigned_in_run
+        load = max(0.0, 1.0 - occupied / ward_row["total_beds"])
+    else:
+        load = 1.0 - (ward_row["occupancy_pct"] or 0.0) / 100.0
     parts = {
         "acuity_fit": round(WEIGHTS["acuity_fit"] * fit, 4),
         "capability": round(WEIGHTS["capability"] * capability, 4),
@@ -72,7 +91,7 @@ def _occupancy(conn):
     rows = views.run_query(
         conn,
         "SELECT ward_id, ward_type, capabilities, occupancy_pct, "
-        "available_beds FROM v_bed_occupancy",
+        "available_beds, occupied_beds, total_beds FROM v_bed_occupancy",
     )
     return {r["ward_id"]: r for r in rows}
 
@@ -102,7 +121,7 @@ def match(conn, max_assignments=None):
             remaining = ward["available_beds"] - ward_taken.get(bed["ward_id"], 0)
             if remaining <= 0:
                 continue
-            scored = score_candidate(boarder, ward)
+            scored = score_candidate(boarder, ward, ward_taken.get(bed["ward_id"], 0))
             if scored is None:
                 continue
             total, parts = scored
