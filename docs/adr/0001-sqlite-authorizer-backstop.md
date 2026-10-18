@@ -24,3 +24,14 @@ row cap is enforced with `fetchmany`, not only by rewriting `LIMIT`.
   gateway.
 - The authorizer is removed after each query (tested), so it never leaks
   into other code on the same connection.
+
+## Revision 2026-10-18 (template sync): strict, view-aware authorizer
+
+The authorizer now uses SQLite's view-name argument. A base-table read is
+allowed only on behalf of an allowed view. A direct read, where the view name
+is None, is denied. The schema tables and `load_extension` are always denied.
+This fixes a false denial on view self-joins: SQLite reports the unused side
+as a read with an empty column name and no view name. That read shape is
+allowed only for tables behind an allowed view. Residual: a column-free
+`count(*)` or `EXISTS` can return a row count, but no column data.
+Regression tests are in `tests/test_authorizer_sync.py`.
