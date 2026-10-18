@@ -5,7 +5,7 @@
 > flow at a fictional hospital: it answers bed-occupancy, ED boarding,
 > discharge, and staffing questions over governed read-only views, matches ED
 > boarders to ward beds with a transparent acuity-weighted score, and gates
-> discharge overrides behind human confirmation. 85 tests, all green; every
+> discharge overrides behind human confirmation. 99 tests, all green; every
 > figure below comes from a real run of this repo.
 
 ## Purpose and who it is for
@@ -99,7 +99,7 @@ out: "nurse [REDACTED-EMAIL] called [REDACTED-PHONE], SSN [REDACTED-SSN] on file
 Offline first -- no API keys, no network, stdlib only:
 
 ```bash
-python -m pytest tests/ -q          # 85 tests
+python -m pytest tests/ -q          # 99 tests
 python scripts/count_tests.py       # prints the real total
 ```
 
@@ -200,7 +200,7 @@ runs.
 | Hash-chained audit + PII-scrubbed feedback | Built |
 | Streamlit demo (thin, tested helpers) | Built |
 | knowledge/ + docs (guide, interview points, threat model) | Built |
-| 85-test regression suite | Built |
+| 99-test regression suite | Built |
 | CI: ruff, tests, docs drift check, hashed brand check, gitleaks; CodeQL; Dependabot | Built (runs on every push) |
 | Live LLM planner / real ADT-FHIR connectors | Planned |
 | Durable audit store + authenticated gates | Planned |
@@ -236,9 +236,26 @@ Test count (also checked by CI):
 
 <!-- run: python scripts/count_tests.py -->
 ```text
-85 tests collected
+99 tests collected
 ```
 <!-- /run -->
+
+### Authorizer template sync (2026-10-18)
+
+The SQLite authorizer was updated to the shared strict, view-aware version.
+A base-table read is allowed only when SQLite reports it on behalf of one of
+the allowed views (the authorizer's view-name argument). A read with no view
+name is denied. `sqlite_master` is always denied, even if listed, and so is
+`load_extension`. None of this repo's views hit the false denial, so the change is preventive here.
+`tests/test_authorizer_sync.py` drives the authorizer directly, independent
+of the text check. It covers comma joins and comment-obfuscated joins with a
+base table, every view, and view self-joins.
+
+Known residual: a read that uses no columns of a table behind a view is
+allowed, because SQLite reports the unused side of a view self-join the same
+way. So `SELECT count(*) FROM <that table>` or `EXISTS (SELECT 1 FROM ...)`
+can still reveal a row count, but no column data. Any column reference is
+denied.
 
 ## Related repos
 
