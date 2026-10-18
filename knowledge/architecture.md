@@ -17,7 +17,7 @@ flowchart TB
     end
 
     subgraph Tools["Governed tools"]
-        SQL[Text-to-SQL<br/>4 read-only views<br/>SEC-SELECT-01/02/03]
+        SQL[Text-to-SQL<br/>4 read-only views<br/>SEC-SELECT-01 / SEC-WRITE-02 / SEC-VIEW-03<br/>+ SQLite authorizer]
         BM[Bed matcher<br/>acuity-weighted score<br/>transparent breakdown]
         DC[Discharge gates<br/>checklist + overrides]
         RAG[SOP RAG<br/>TF-IDF + citations]

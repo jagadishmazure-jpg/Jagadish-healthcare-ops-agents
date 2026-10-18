@@ -5,14 +5,12 @@ audit event via :meth:`AuditLog.record`, so feedback inherits the chain's
 tamper evidence and is verifiable with :meth:`AuditLog.verify_chain`
 alongside every other event.
 
-Free text is scrubbed for personal data (email, phone, SSN patterns) *before*
+Free text is scrubbed for personal data (email, phone, SSN, MRN patterns) *before*
 storage -- a correction like "patient jane@x.com called" must never land in
 the log with the address intact.
 """
 
 import re
-
-from .audit import AuditLog
 
 ACTION = "feedback"
 ACTOR = "user"
@@ -24,15 +22,17 @@ class FeedbackError(ValueError):
 
 
 class PIIScrubber:
-    """Redact email / phone / SSN-like patterns from free text."""
+    """Redact email, phone (incl. "(555) 123-4567"), SSN and MRN patterns."""
 
     PATTERNS = [
         (re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"),
          "[REDACTED-EMAIL]"),
-        (re.compile(r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b"),
+        (re.compile(r"(?<!\w)(?:\+?1[-.\s]?)?(?:\(\d{3}\)\s?|\d{3}[-.\s]?)\d{3}[-.\s]?\d{4}\b"),
          "[REDACTED-PHONE]"),
         (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
          "[REDACTED-SSN]"),
+        (re.compile(r"\bMRN[\s:#-]*\d{5,10}\b", re.I),
+         "[REDACTED-MRN]"),
     ]
 
     def scrub(self, text):

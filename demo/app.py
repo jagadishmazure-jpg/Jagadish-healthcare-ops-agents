@@ -16,8 +16,9 @@ SOPS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 
 
 def main():
-    import streamlit as st  # lazy: keeps stdlib tests dependency-free
     import sys
+
+    import streamlit as st  # lazy: keeps stdlib tests dependency-free
 
     # `streamlit run demo/app.py` puts demo/ on sys.path; hospops/ lives one up.
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -13,12 +13,10 @@ medication, symptoms -- is refused explicitly, never answered. See the
 import re
 
 from . import audit as audit_mod
-from . import bedmatch
+from . import bedmatch, sop_rag, text2sql
 from . import demand as demand_mod
 from . import discharge as discharge_mod
 from . import escalation as esc
-from . import sop_rag
-from . import text2sql
 
 _CLINICAL_RE = re.compile(
     r"\b(diagnos|treatment|medicat|dosage|prescrib|symptom|disease|\bcure\b)",

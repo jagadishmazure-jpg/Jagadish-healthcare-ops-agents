@@ -6,3 +6,5 @@ venv/
 *.db
 *.sqlite
 .DS_Store
+.ruff_cache/
+*.pdf
